@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="340" viewBox="0 0 520 340" fill="none">
+  <defs>
+    <linearGradient id="calendar" x1="148" y1="50" x2="381" y2="290" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/>
+      <stop offset="1" stop-color="#F2F0FF"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="363" y1="62" x2="452" y2="152" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE7A8"/>
+      <stop offset="1" stop-color="#F2B761"/>
+    </linearGradient>
+    <filter id="shadow" x="53" y="13" width="421" height="332" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="13"/>
+    </filter>
+  </defs>
+  <ellipse cx="263" cy="301" rx="170" ry="18" fill="#22234C" fill-opacity=".12" filter="url(#shadow)"/>
+  <circle cx="264" cy="164" r="127" fill="#A99BFF" fill-opacity=".12"/>
+  <circle cx="264" cy="164" r="109" stroke="#8D7EF7" stroke-opacity=".22" stroke-dasharray="3 8"/>
+  <rect x="119" y="48" width="245" height="224" rx="22" fill="url(#calendar)" stroke="#fff" stroke-width="3"/>
+  <path d="M119 72c0-13.255 10.745-24 24-24h197c13.255 0 24 10.745 24 24v24H119V72Z" fill="#E9E5FF"/>
+  <circle cx="148" cy="72" r="5" fill="#F08C91"/>
+  <circle cx="166" cy="72" r="5" fill="#F2BE62"/>
+  <circle cx="184" cy="72" r="5" fill="#63CDA7"/>
+  <rect x="145" y="117" width="74" height="7" rx="3.5" fill="#AAA5C9"/>
+  <g fill="#E7E4F2">
+    <rect x="145" y="144" width="34" height="30" rx="7"/><rect x="189" y="144" width="34" height="30" rx="7"/><rect x="233" y="144" width="34" height="30" rx="7"/><rect x="277" y="144" width="34" height="30" rx="7"/><rect x="321" y="144" width="20" height="30" rx="7"/>
+    <rect x="145" y="184" width="34" height="30" rx="7"/><rect x="189" y="184" width="34" height="30" rx="7"/><rect x="233" y="184" width="34" height="30" rx="7"/><rect x="277" y="184" width="34" height="30" rx="7"/><rect x="321" y="184" width="20" height="30" rx="7"/>
+  </g>
+  <rect x="233" y="184" width="34" height="30" rx="7" fill="#7666E2"/>
+  <path d="m242 198 6 6 11-13" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+  <circle cx="404" cy="105" r="48" fill="url(#sun)" stroke="#fff" stroke-width="8"/>
+  <path d="M404 81v25l17 11" stroke="#9E6B28" stroke-linecap="round" stroke-linejoin="round" stroke-width="6"/>
+  <path d="m88 205 5 13 13 5-13 5-5 13-5-13-13-5 13-5 5-13Z" fill="#70D4B7"/>
+  <circle cx="106" cy="108" r="5" fill="#F2B761"/>
+  <circle cx="438" cy="203" r="4" fill="#8D7EF7"/>
+</svg>

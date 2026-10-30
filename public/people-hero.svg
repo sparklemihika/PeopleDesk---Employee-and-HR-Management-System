@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="560" viewBox="0 0 720 560" fill="none">
+  <defs>
+    <linearGradient id="glass" x1="140" y1="80" x2="592" y2="500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".24"/>
+      <stop offset="1" stop-color="#A59AFF" stop-opacity=".06"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="258" y1="151" x2="526" y2="416" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/>
+      <stop offset="1" stop-color="#F0EEFF"/>
+    </linearGradient>
+    <linearGradient id="purple" x1="345" y1="251" x2="431" y2="380" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A99BFF"/>
+      <stop offset="1" stop-color="#7563E9"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="469" y1="324" x2="514" y2="399" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8AE8D0"/>
+      <stop offset="1" stop-color="#36B99A"/>
+    </linearGradient>
+    <filter id="shadow" x="146" y="115" width="467" height="389" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+  </defs>
+  <circle cx="356" cy="275" r="205" fill="#9A8BFF" fill-opacity=".08"/>
+  <circle cx="356" cy="275" r="176" stroke="#fff" stroke-opacity=".14" stroke-dasharray="3 9"/>
+  <ellipse cx="371" cy="462" fill="#11143A" fill-opacity=".34" rx="190" ry="25" filter="url(#shadow)"/>
+  <g class="art-panel">
+    <rect x="182" y="127" width="372" height="324" rx="24" fill="url(#glass)" stroke="#fff" stroke-opacity=".3"/>
+    <rect x="201" y="147" width="334" height="285" rx="17" fill="url(#panel)"/>
+    <path d="M201 164c0-9.389 7.611-17 17-17h300c9.389 0 17 7.611 17 17v25H201v-25Z" fill="#fff"/>
+    <circle cx="222" cy="168" r="4" fill="#F08C91"/>
+    <circle cx="237" cy="168" r="4" fill="#F2BE62"/>
+    <circle cx="252" cy="168" r="4" fill="#63CDA7"/>
+    <rect x="219" y="211" width="82" height="8" rx="4" fill="#C5C1DA"/>
+    <rect x="219" y="228" width="53" height="5" rx="2.5" fill="#E0DEEA"/>
+    <rect x="220" y="258" width="94" height="65" rx="11" fill="#fff"/>
+    <rect x="328" y="258" width="94" height="65" rx="11" fill="#fff"/>
+    <rect x="436" y="258" width="79" height="65" rx="11" fill="#fff"/>
+    <circle cx="240" cy="278" r="8" fill="#F1EDFF"/>
+    <path d="M237 278h6m-3-3v6" stroke="#7D6BEA" stroke-linecap="round" stroke-width="1.8"/>
+    <rect x="254" y="274" width="38" height="5" rx="2.5" fill="#D4D1E2"/>
+    <rect x="233" y="294" width="42" height="13" rx="4" fill="#6F5EE2"/>
+    <path d="M346 304v-9m14 9v-18m14 18v-13m14 13v-24m14 24v-17" stroke="#8BDCC5" stroke-linecap="round" stroke-width="6"/>
+    <path d="M453 300c8-13 18-13 25 0s17 13 25 0" stroke="#F0AE5E" stroke-linecap="round" stroke-width="4"/>
+    <rect x="220" y="341" width="295" height="72" rx="11" fill="#fff"/>
+    <path d="m239 389 35-20 31 12 38-25 34 8 39-21 34 11 41-24" stroke="url(#purple)" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/>
+    <path d="M239 397h250" stroke="#F0EEF6" stroke-linecap="round" stroke-width="2"/>
+    <circle cx="239" cy="389" r="4" fill="#8A7AF0"/>
+    <circle cx="412" cy="343" r="4" fill="#8A7AF0"/>
+    <circle cx="491" cy="330" r="4" fill="#8A7AF0"/>
+  </g>
+  <g class="art-person art-person-left">
+    <path d="M105 435c0-58 36-92 82-92s82 34 82 92v18H105v-18Z" fill="#F4B98A"/>
+    <path d="M133 346c3-37 23-58 54-58 35 0 54 28 51 65-10-12-24-20-42-21-19 18-39 24-63 23v-9Z" fill="#322B55"/>
+    <circle cx="185" cy="328" r="43" fill="#D88C69"/>
+    <path d="M142 325c4-37 23-56 52-56 25 0 43 14 49 43-13-6-25-16-33-28-15 17-38 28-68 31Z" fill="#352C5D"/>
+    <path d="M119 453v-25c0-23 19-42 42-42h48c23 0 42 19 42 42v25H119Z" fill="#78D7C2"/>
+    <path d="m160 386 25 24 24-24" fill="#F9F6FF"/>
+  </g>
+  <g class="art-person art-person-right">
+    <path d="M471 448v-23c0-32 24-57 54-57s54 25 54 57v23H471Z" fill="#F6C28F"/>
+    <circle cx="525" cy="336" r="38" fill="#A86655"/>
+    <path d="M488 333c2-29 17-48 41-50 30-3 49 17 50 50-16-4-31-15-40-29-12 17-28 26-51 29Z" fill="#272448"/>
+    <path d="M485 448v-24c0-21 18-38 40-38h1l-1 62h-40Z" fill="#7B6AE8"/>
+    <path d="m523 386 3 62h39v-24c0-21-17-38-38-38h-4Z" fill="#9B8AF4"/>
+  </g>
+  <g class="art-spark">
+    <path d="m592 206 4 13 13 4-13 4-4 13-4-13-13-4 13-4 4-13Z" fill="#B7F1DC"/>
+    <circle cx="123" cy="203" r="5" fill="#F5C47F"/>
+    <circle cx="601" cy="377" r="4" fill="#A99CFF"/>
+  </g>
+</svg>

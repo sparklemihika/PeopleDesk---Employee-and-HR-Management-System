@@ -1,0 +1,293 @@
+{
+  "info": {
+    "_postman_id": "d835a319-6ea6-4d34-aafb-f640a334061e",
+    "name": "PeopleDesk HR Management API",
+    "description": "Smoke-test the PeopleDesk Express API. Sign in first; the login test script saves the JWT for subsequent requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "token", "value": "" },
+    { "key": "employeeToken", "value": "" },
+    { "key": "employeeId", "value": "" },
+    { "key": "leaveId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/health" }
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Login succeeds', function () { pm.response.to.have.status(200); });",
+                "const body = pm.response.json();",
+                "if (body.token) pm.collectionVariables.set('token', body.token);",
+                "pm.test('HR portal returned the signed-in user', function () { pm.expect(body.user.role).to.be.oneOf(['admin', 'hr']); });"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"portal\": \"hr\",\n  \"email\": \"admin@example.com\",\n  \"password\": \"replace-with-admin-password\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        },
+        {
+          "name": "Current user",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        },
+        {
+          "name": "Employee login",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Employee login succeeds', function () { pm.response.to.have.status(200); });",
+                "const body = pm.response.json();",
+                "if (body.token) pm.collectionVariables.set('employeeToken', body.token);",
+                "pm.test('Employee portal returned an employee account', function () { pm.expect(body.user.role).to.equal('employee'); });"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"portal\": \"employee\",\n  \"email\": \"employee@example.com\",\n  \"password\": \"replace-with-employee-password\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee portal",
+      "item": [
+        {
+          "name": "My employee records",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{employeeToken}}" }],
+            "url": "{{baseUrl}}/api/employee-portal"
+          }
+        },
+        {
+          "name": "Submit my leave request",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{employeeToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"Annual\",\n  \"startDate\": \"2026-11-02\",\n  \"endDate\": \"2026-11-03\",\n  \"reason\": \"Personal time\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/employee-portal/leaves"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/api/dashboard"
+      }
+    },
+    {
+      "name": "Employees",
+      "item": [
+        {
+          "name": "List employees",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/employees"
+          }
+        },
+        {
+          "name": "Create employee",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Employee created', function () { pm.response.to.have.status(201); });",
+                "const body = pm.response.json();",
+                "if (body.data && body.data._id) pm.collectionVariables.set('employeeId', body.data._id);"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Alex Morgan\",\n  \"email\": \"alex.morgan@example.com\",\n  \"department\": \"Engineering\",\n  \"jobTitle\": \"Software Engineer\",\n  \"hireDate\": \"2026-01-15\",\n  \"employmentType\": \"Full-time\",\n  \"salary\": 75000\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/employees"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        {
+          "name": "List attendance",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/attendance"
+          }
+        },
+        {
+          "name": "Create attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"employeeId\": \"{{employeeId}}\",\n  \"date\": \"2026-10-28\",\n  \"checkIn\": \"09:00\",\n  \"checkOut\": \"17:30\",\n  \"status\": \"Present\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/attendance"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Leave",
+      "item": [
+        {
+          "name": "List leave requests",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/leaves"
+          }
+        },
+        {
+          "name": "Create leave request",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "pm.test('Leave request created', function () { pm.response.to.have.status(201); });",
+                "const body = pm.response.json();",
+                "if (body.data && body.data._id) pm.collectionVariables.set('leaveId', body.data._id);"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"employeeId\": \"{{employeeId}}\",\n  \"type\": \"Annual\",\n  \"startDate\": \"2026-11-02\",\n  \"endDate\": \"2026-11-03\",\n  \"reason\": \"Personal time\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/leaves"
+          }
+        },
+        {
+          "name": "Approve leave request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"Approved\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/leaves/{{leaveId}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payroll",
+      "item": [
+        {
+          "name": "List payroll",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/payroll"
+          }
+        },
+        {
+          "name": "Create payroll record",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"employeeId\": \"{{employeeId}}\",\n  \"period\": \"2026-10\",\n  \"baseSalary\": 6000,\n  \"bonus\": 250,\n  \"deductions\": 1200\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/payroll"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recruitment",
+      "item": [
+        {
+          "name": "List candidates",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/candidates"
+          }
+        },
+        {
+          "name": "Create candidate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Taylor Kim\",\n  \"email\": \"taylor.kim@example.com\",\n  \"position\": \"Product Designer\",\n  \"department\": \"Design\",\n  \"stage\": \"Applied\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/candidates"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Performance",
+      "item": [
+        {
+          "name": "List reviews",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/performance"
+          }
+        },
+        {
+          "name": "Create review",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"employeeId\": \"{{employeeId}}\",\n  \"reviewer\": \"Jordan Davis\",\n  \"period\": \"Q4 2026\",\n  \"rating\": 4,\n  \"feedback\": \"Strong collaboration and delivery.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/api/performance"
+          }
+        }
+      ]
+    }
+  ]
+}
