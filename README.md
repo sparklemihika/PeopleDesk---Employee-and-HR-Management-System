@@ -1,3 +1,4 @@
+
 # PeopleDesk HR Management System
 
 PeopleDesk is a full-stack HR operations platform built with React, Express, MongoDB and Mongoose. It has separate **HR/admin** and **employee** portals, an analytics dashboard, and workflows for attendance, leave, payroll, recruitment and performance reviews.
@@ -329,3 +330,5 @@ The image serves the API and the built React app on port 5000 and includes a hea
 ## License
 
 Created for educational and demo purposes.
+
+# PeopleDesk---Employee-and-HR-Management-System
