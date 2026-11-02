@@ -24,6 +24,7 @@ const employeeSchema = new Schema({
   department: { type: String, required: true, trim: true, maxlength: 100 },
   jobTitle: { type: String, required: true, trim: true, maxlength: 120 },
   phone: { type: String, trim: true, maxlength: 30, default: "" },
+  gender: { type: String, enum: ["", "Female", "Male", "Non-binary", "Other", "Prefer not to say"], default: "" },
   hireDate: { type: Date, required: true },
   employmentType: { type: String, enum: ["Full-time", "Part-time", "Contract", "Intern"], default: "Full-time" },
   salary: { type: Number, min: 0, default: 0 },

@@ -507,6 +507,17 @@ h1 { font-size: 25px; font-weight: 700; letter-spacing: -.8px; line-height: 1.2;
 .employee-review small { color: #788196; font-size: 9px; margin-top: 4px; }
 .employee-review p { color: #596277; font-size: 10px; grid-column: 1 / -1; line-height: 1.6; margin: 0; }
 .employee-loading { align-items: center; color: #788196; display: flex; font-size: 11px; gap: 10px; padding: 20px; }
+.employee-personal-info-intro { align-items: center; background: linear-gradient(120deg, var(--panel), var(--panel-soft)); border: 1px solid var(--border); border-radius: 14px; display: flex; justify-content: space-between; margin: 0 0 14px; padding: 17px 20px; }
+.employee-personal-info-intro .eyebrow { color: var(--primary); font-size: 9px; font-weight: 750; letter-spacing: .1em; }
+.employee-personal-info-intro h2 { color: var(--text); font-size: 16px; margin: 4px 0; }
+.employee-personal-info-intro p { color: var(--muted); font-size: 11px; margin: 0; }
+.employee-info-count { background: var(--panel); border: 1px solid var(--border); border-radius: 999px; color: var(--muted); flex: 0 0 auto; font-size: 10px; font-weight: 700; padding: 7px 11px; }
+.employee-personal-info-modal { max-width: 620px; }
+.employee-personal-info-modal .panel-heading h2 { color: var(--text); font-size: 20px; margin: 5px 0 3px; }
+.employee-personal-info-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 18px 0 0; }
+.employee-personal-info-item { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 10px; min-width: 0; padding: 12px 14px; }
+.employee-personal-info-item dt { color: var(--muted); font-size: 10px; font-weight: 600; }
+.employee-personal-info-item dd { color: var(--text); font-size: 12px; font-weight: 700; margin: 5px 0 0; overflow-wrap: anywhere; }
 .form-field-wide { grid-column: 1 / -1; }
 @media (max-width: 800px) {
   .module-chart-grid, .employee-attendance-insights { grid-template-columns: 1fr; }
@@ -519,6 +530,8 @@ h1 { font-size: 25px; font-weight: 700; letter-spacing: -.8px; line-height: 1.2;
   .employee-actions { justify-content: flex-start; }
 }
 @media (max-width: 560px) {
+  .employee-personal-info-intro { align-items: flex-start; gap: 10px; padding: 14px; }
+  .employee-personal-info-grid { grid-template-columns: 1fr; }
   .employee-topbar { gap: 10px; padding: 12px 13px; }
   .employee-user { border-radius: 14px; padding: 10px; width: 100%; }
   .employee-identity { padding: 0 2px 2px; }

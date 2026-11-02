@@ -228,6 +228,8 @@ Leave allowances count inclusive calendar days (including weekends); unpaid leav
 
 HR creates employee records before an employee login can be provisioned. The employee portal never accepts an employee ID for personal requests; the API takes the employee ID from the authenticated account.
 
+HR can review employee contact and work details in **Employees → Personal information**. Employee profiles include email, phone, department, job title, hire date, employment type, status, and an optional gender value. Gender is not required and employees may choose “Prefer not to say.”
+
 ### Password reset email configuration
 
 The **Forgot password?** link is available on both sign-in portals. Configure these variables in `.env` and restart the API before requesting a reset:

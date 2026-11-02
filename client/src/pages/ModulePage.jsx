@@ -15,8 +15,8 @@ const modules = {
   employees: {
     title: "Employees", eyebrow: "People directory", description: "Manage your team, roles, and employee information.", endpoint: "/employees", action: "Add employee",
     summary: [{ label: "Employees", value: "total", note: "In your organization" }, { label: "Active", value: "active", note: "Currently employed" }, { label: "Departments", value: "departments", note: "Represented on your team" }],
-    columns: [["name", "Employee"], ["department", "Department"], ["jobTitle", "Job title"], ["email", "Email"], ["status", "Status"]],
-    fields: [["name", "Full name", "text", true], ["email", "Email address", "email", true], ["department", "Department", "text", true], ["jobTitle", "Job title", "text", true], ["phone", "Phone number", "tel", false], ["hireDate", "Hire date", "date", true], ["employmentType", "Employment type", "select", true, ["Full-time", "Part-time", "Contract", "Intern"]], ["salary", "Annual salary", "number", false]],
+    columns: [["name", "Employee"], ["department", "Department"], ["jobTitle", "Job title"], ["email", "Email"], ["phone", "Phone"], ["gender", "Gender"], ["status", "Status"], ["actions", "Personal information"]],
+    fields: [["name", "Full name", "text", true], ["email", "Email address", "email", true], ["department", "Department", "text", true], ["jobTitle", "Job title", "text", true], ["phone", "Phone number", "tel", false], ["gender", "Gender", "gender", false], ["hireDate", "Hire date", "date", true], ["employmentType", "Employment type", "select", true, ["Full-time", "Part-time", "Contract", "Intern"]], ["salary", "Annual salary", "number", false]],
   },
   attendance: {
     title: "Attendance", eyebrow: "Time & schedules", description: "Record and review your team’s daily attendance.", endpoint: "/attendance", action: "Record attendance",
@@ -108,6 +108,7 @@ export default function ModulePage({ moduleKey }) {
   const [saving, setSaving] = useState(false);
   const [attendanceSaving, setAttendanceSaving] = useState(null);
   const [notice, setNotice] = useState("");
+  const [employeeInfo, setEmployeeInfo] = useState(null);
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
@@ -324,6 +325,9 @@ export default function ModulePage({ moduleKey }) {
   }
 
   function cellValue(record, key) {
+    if (key === "actions" && moduleKey === "employees") {
+      return <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setEmployeeInfo(record)}>View details</button>;
+    }
     if (key === "employee") {
       const employeeName = record.employee?.name || record.name || "—";
       const detail = record.employee?.department || record.department || record.position || "";
@@ -362,6 +366,7 @@ export default function ModulePage({ moduleKey }) {
         </div>
       </>}
       {moduleKey === "employees" && <section className="panel employee-directory-overview"><div className="employee-directory-art"><img src="/team-hero.svg" alt="" /></div><div className="employee-directory-chart"><div className="panel-heading"><div><h2>Your team, by department</h2><p>{employees.length} employees across {departmentCounts.length} departments</p></div></div><div className="module-chart-canvas"><ResponsiveContainer width="100%" height="100%"><BarChart data={departmentCounts} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}><CartesianGrid stroke="var(--border)" vertical={false} /><XAxis dataKey="department" axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 9 }} interval={0} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 10 }} /><Tooltip content={<AttendanceChartTooltip />} /><Bar dataKey="employees" name="Employees" radius={[5, 5, 0, 0]} maxBarSize={42}>{departmentCounts.map((item, index) => <Cell key={item.department} fill={departmentColors[index % departmentColors.length]} />)}</Bar></BarChart></ResponsiveContainer>{!departmentCounts.length && <div className="module-chart-empty">Add employees to see your team distribution.</div>}</div></div></section>}
+      {moduleKey === "employees" && <section className="employee-personal-info-intro"><div><span className="eyebrow">EMPLOYEE RECORDS</span><h2>Personal information</h2><p>HR can review each employee’s contact details, gender, role, and employment information from the directory.</p></div><span className="employee-info-count">{employees.length} {employees.length === 1 ? "profile" : "profiles"}</span></section>}
       {moduleKey === "leave" && <>
         <section className="attendance-overview module-feature-overview leave-overview">
           <div className="attendance-overview-copy"><span className="eyebrow">TIME TO RECHARGE</span><h2>Time away, thoughtfully managed.</h2><p>Keep requests visible, understand your team’s time-off patterns, and make reviews easier.</p><div className="attendance-overview-stats"><span><strong>{counts.pending}</strong> awaiting review</span><span><strong>{counts.approved}</strong> approved</span><span><strong>{counts.total}</strong> requests</span></div></div>
@@ -421,10 +426,19 @@ export default function ModulePage({ moduleKey }) {
           {loading && <tr><td className="empty-state" colSpan={config.columns.length}>Loading records…</td></tr>}
         </tbody></table></div>
       </section>
+      {employeeInfo && moduleKey === "employees" && <div className="modal-backdrop-custom" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEmployeeInfo(null); }}>
+        <section className="form-modal employee-personal-info-modal" role="dialog" aria-modal="true" aria-labelledby="employee-personal-info-title">
+          <div className="panel-heading"><div><span className="eyebrow">EMPLOYEE PROFILE</span><h2 id="employee-personal-info-title">{employeeInfo.name}</h2><p>{employeeInfo.jobTitle || "Employee"} · {employeeInfo.department || "Department not set"}</p></div><button type="button" className="modal-close" onClick={() => setEmployeeInfo(null)} aria-label="Close employee details">×</button></div>
+          <dl className="employee-personal-info-grid">
+            {[["Email address", employeeInfo.email], ["Phone number", employeeInfo.phone], ["Gender", employeeInfo.gender], ["Department", employeeInfo.department], ["Job title", employeeInfo.jobTitle], ["Employment type", employeeInfo.employmentType], ["Hire date", displayDate(employeeInfo.hireDate)], ["Employment status", employeeInfo.status]].map(([label, value]) => <div className="employee-personal-info-item" key={label}><dt>{label}</dt><dd>{value || "Not provided"}</dd></div>)}
+          </dl>
+          <div className="modal-actions"><button type="button" className="btn btn-primary" onClick={() => setEmployeeInfo(null)}>Done</button></div>
+        </section>
+      </div>}
       {modalOpen && <div className="modal-backdrop-custom" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setModalOpen(false); }}>
         <section className="form-modal" role="dialog" aria-modal="true" aria-labelledby="record-modal-title">
           <div className="panel-heading"><div><h2 id="record-modal-title">{config.action}</h2><p>Enter the details below to save this record.</p></div><button className="modal-close" onClick={() => setModalOpen(false)} aria-label="Close">×</button></div>
-          <form onSubmit={submitRecord}><div className="modal-form-grid">{config.fields.map(([name, label, type, required, options]) => <div className={`form-field ${type === "textarea" ? "form-field-wide" : ""}`} key={name}><label htmlFor={`field-${name}`}>{label}{required && <span className="required-mark"> *</span>}</label>{type === "select" ? <select className="form-select" id={`field-${name}`} name={name} required={required}>{options.map((option) => <option key={option}>{option}</option>)}</select> : type === "employee" ? <select className="form-select" id={`field-${name}`} name={name} required={required} defaultValue=""><option value="" disabled>Select an employee</option>{employees.map((employee) => <option key={employee._id} value={employee._id}>{employee.name} · {employee.department}</option>)}</select> : type === "job" ? <select className="form-select" id={`field-${name}`} name={name} defaultValue=""><option value="">Unlinked candidate</option>{jobs.filter((job) => job.status === "Open").map((job) => <option key={job._id} value={job._id}>{job.title} · {job.department}</option>)}</select> : type === "textarea" ? <textarea className="form-control" id={`field-${name}`} name={name} maxLength="3000" rows="3" /> : <input className="form-control" id={`field-${name}`} name={name} type={type} required={required} min={type === "number" && name === "rating" ? 1 : undefined} max={name === "rating" ? 5 : undefined} step={type === "number" ? "0.01" : undefined} />}</div>)}</div>
+          <form onSubmit={submitRecord}><div className="modal-form-grid">{config.fields.map(([name, label, type, required, options]) => <div className={`form-field ${type === "textarea" ? "form-field-wide" : ""}`} key={name}><label htmlFor={`field-${name}`}>{label}{required && <span className="required-mark"> *</span>}</label>{type === "select" ? <select className="form-select" id={`field-${name}`} name={name} required={required}>{options.map((option) => <option key={option}>{option}</option>)}</select> : type === "gender" ? <select className="form-select" id={`field-${name}`} name={name} defaultValue=""><option value="">Choose if provided</option>{["Female", "Male", "Non-binary", "Other", "Prefer not to say"].map((option) => <option key={option}>{option}</option>)}</select> : type === "employee" ? <select className="form-select" id={`field-${name}`} name={name} required={required} defaultValue=""><option value="" disabled>Select an employee</option>{employees.map((employee) => <option key={employee._id} value={employee._id}>{employee.name} · {employee.department}</option>)}</select> : type === "job" ? <select className="form-select" id={`field-${name}`} name={name} defaultValue=""><option value="">Unlinked candidate</option>{jobs.filter((job) => job.status === "Open").map((job) => <option key={job._id} value={job._id}>{job.title} · {job.department}</option>)}</select> : type === "textarea" ? <textarea className="form-control" id={`field-${name}`} name={name} maxLength="3000" rows="3" /> : <input className="form-control" id={`field-${name}`} name={name} type={type} required={required} min={type === "number" && name === "rating" ? 1 : undefined} max={name === "rating" ? 5 : undefined} step={type === "number" ? "0.01" : undefined} />}</div>)}</div>
             <div className="modal-actions"><button type="button" className="btn btn-light" onClick={() => setModalOpen(false)}>Cancel</button><button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving…" : "Save record"}</button></div>
           </form>
         </section>

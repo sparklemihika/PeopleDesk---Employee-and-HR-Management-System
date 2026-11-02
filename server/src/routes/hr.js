@@ -9,6 +9,7 @@ import { notifyEmployee, notifyHr } from "../utils/notifications.js";
 const router = Router();
 const populateEmployee = { path: "employee", select: "name email department jobTitle" };
 const defaultEntitlements = { Annual: 20, Sick: 10, Personal: 5, Parental: 90 };
+const employeeGenders = ["", "Female", "Male", "Non-binary", "Other", "Prefer not to say"];
 
 function isObjectId(value) {
   return mongoose.isValidObjectId(value);
@@ -47,9 +48,12 @@ router.get("/employees", async (req, res) => listRecords(res, Employee.find()));
 router.post("/employees", async (req, res) => {
   const error = requireFields(req.body, ["name", "email", "department", "jobTitle", "hireDate"]);
   if (error) return res.status(400).json({ message: error });
+  if (req.body.gender !== undefined && !employeeGenders.includes(req.body.gender)) {
+    return res.status(400).json({ message: "Choose a valid gender option." });
+  }
   const employee = await Employee.create({
     name: req.body.name, email: req.body.email, department: req.body.department, jobTitle: req.body.jobTitle,
-    phone: req.body.phone, hireDate: asDate(req.body.hireDate, "Hire date"), employmentType: req.body.employmentType,
+    phone: req.body.phone, gender: req.body.gender || "", hireDate: asDate(req.body.hireDate, "Hire date"), employmentType: req.body.employmentType,
     salary: req.body.salary,
   });
   await notifyHr("Employee added", `${employee.name} was added to the employee directory.`, "/employees");
