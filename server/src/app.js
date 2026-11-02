@@ -10,6 +10,8 @@ import authRoutes from "./routes/auth.js";
 import hrRoutes from "./routes/hr.js";
 import employeePortalRoutes from "./routes/employeePortal.js";
 import operationsRoutes from "./routes/operations.js";
+import collaborationRoutes from "./routes/collaboration.js";
+import externalCollaborationRoutes from "./routes/externalCollaboration.js";
 import { requireAuth, requireRole } from "./middleware/auth.js";
 import { auditChanges } from "./middleware/audit.js";
 import { errorHandler, notFound } from "./middleware/errors.js";
@@ -45,6 +47,8 @@ app.get("/api/health", (req, res) => {
   });
 });
 app.use("/api/auth", authRoutes);
+app.use("/api/collaboration", requireAuth, requireRole("admin", "hr", "employee"), auditChanges, collaborationRoutes);
+app.use("/api/external-collaboration", requireAuth, auditChanges, externalCollaborationRoutes);
 app.use("/api/operations", requireAuth, auditChanges, operationsRoutes);
 app.use("/api/employee-portal", requireAuth, requireRole("employee"), auditChanges, employeePortalRoutes);
 app.use("/api", requireAuth, requireRole("admin", "hr"), auditChanges, hrRoutes);

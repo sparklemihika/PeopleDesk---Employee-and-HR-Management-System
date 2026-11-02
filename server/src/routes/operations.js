@@ -4,7 +4,7 @@ import {
   AuditLog, Attendance, Candidate, Employee, JobOpening, LeaveBalance, LeaveRequest,
   Notification, Payroll, ProfileChange, User,
 } from "../models/index.js";
-import { notifyUser } from "../utils/notifications.js";
+import { notifyUpcomingTaskDue, notifyUser } from "../utils/notifications.js";
 import { requireRole } from "../middleware/auth.js";
 import { calendarDaysWithinYear } from "../utils/hr.js";
 
@@ -34,6 +34,7 @@ function csvCell(value) {
 }
 
 router.get("/notifications", async (req, res) => {
+  await notifyUpcomingTaskDue(req.user);
   const data = await Notification.find({ user: req.user._id }).sort({ createdAt: -1 }).limit(50);
   return res.json({ data, unread: data.filter((item) => !item.readAt).length });
 });

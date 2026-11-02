@@ -15,7 +15,7 @@ export async function requireAuth(req, res, next) {
     if (await RevokedToken.exists({ jti: payload.jti })) {
       return res.status(401).json({ message: "Your session has ended. Please sign in again." });
     }
-    const user = await User.findById(payload.sub).select("name email role employee sessionVersion");
+    const user = await User.findById(payload.sub).select("name email role employee partnerOrganization sessionVersion");
     if (!user) return res.status(401).json({ message: "Your session is no longer valid." });
     if (payload.sessionVersion !== user.sessionVersion) {
       return res.status(401).json({ message: "Your password changed. Please sign in again." });

@@ -5,6 +5,8 @@ import ForgotPassword from "./pages/ForgotPassword.jsx";
 import Login from "./pages/Login.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
 import EmployeePortal from "./pages/EmployeePortal.jsx";
+import PartnerPortal from "./pages/PartnerPortal.jsx";
+import PartnerInvite from "./pages/PartnerInvite.jsx";
 import ModulePage from "./pages/ModulePage.jsx";
 import Shell from "./components/Shell.jsx";
 import { ToastProvider } from "./components/ToastHost.jsx";
@@ -21,6 +23,7 @@ function ProtectedLayout() {
   if (loading) return <PageLoading />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "employee") return <Navigate to="/employee" replace />;
+  if (user.role === "partner") return <Navigate to="/partner" replace />;
   return <Shell />;
 }
 
@@ -32,6 +35,14 @@ function EmployeeLayout() {
   return <EmployeePortal />;
 }
 
+function PartnerLayout() {
+  const { user, loading } = useAuth();
+  if (loading) return <PageLoading />;
+  if (!user) return <Navigate to="/partner-login" replace />;
+  if (user.role !== "partner") return <Navigate to={user.role === "employee" ? "/employee" : "/"} replace />;
+  return <PartnerPortal />;
+}
+
 export default function App() {
   const { user } = useAuth();
   return (
@@ -39,6 +50,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/employee-login" element={user ? <Navigate to={user.role === "employee" ? "/employee" : "/" } replace /> : <Login portal="employee" />} />
+        <Route path="/partner-login" element={user ? <Navigate to={user.role === "partner" ? "/partner" : user.role === "employee" ? "/employee" : "/"} replace /> : <Login portal="partner" />} />
+        <Route path="/partner-invite" element={user ? <Navigate to={user.role === "partner" ? "/partner" : "/partner-login"} replace /> : <PartnerInvite />} />
         <Route path="/forgot-password" element={user ? <Navigate to={user.role === "employee" ? "/employee" : "/" } replace /> : <ForgotPassword />} />
         <Route path="/reset-password" element={user ? <Navigate to={user.role === "employee" ? "/employee" : "/" } replace /> : <ResetPassword />} />
         <Route element={<ProtectedLayout />}>
@@ -52,6 +65,7 @@ export default function App() {
           <Route path="operations" element={<Suspense fallback={<PageLoading />}><OperationsPage /></Suspense>} />
         </Route>
         <Route path="/employee" element={<EmployeeLayout />} />
+        <Route path="/partner" element={<PartnerLayout />} />
         <Route path="*" element={<Navigate to={user?.role === "employee" ? "/employee" : user ? "/" : "/login"} replace />} />
       </Routes>
     </ToastProvider>

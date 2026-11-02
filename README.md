@@ -13,7 +13,9 @@ PeopleDesk is a full-stack HR operations platform built with React, Express, Mon
 - Recruitment pipeline: job openings, candidates, interviews and recruiter notes
 - Performance review workflows
 - Notifications, audit trail and filtered CSV report exports
-- Employee self-service: check-in/out, leave requests, profile-change requests
+- Employee self-service: check-in/out, 30-day attendance history, leave requests, profile-change requests, an AI help assistant, and direct administrator email support
+- Shared organization collaboration workspace with an illustrated header, meeting minutes, to-dos, employee task assignments, and announcements
+- Invite-only cross-company project spaces with separate partner accounts, shared tasks, meeting notes, updates, and secure file sharing
 - Role-based access (admin, HR, employee) with JWT sessions, token revocation, rate limiting and bcrypt password hashing
 - Password reset by email (SMTP), light/dark theme, and a built-in support chatbot
 
@@ -76,7 +78,7 @@ render.yaml      One-click Render Blueprint
    npm run seed:demo
    ```
 
-   This safely creates or updates the demo HR account, four employee records and their portal logins, attendance, leave and balance records, payroll, performance reviews, job openings, candidates, and HR notifications. It does not delete other organization data. Existing account passwords are preserved; newly created employee accounts use `DEMO_EMPLOYEE_PASSWORD` if set, otherwise `Demo-Employee-123`.
+   This safely creates or updates the demo HR account, four employee records and their portal logins, internal HR-assigned tasks, and a sample **PeopleDesk × Northstar Partner Co.** project with tasks assigned to HR and each demo employee. It also seeds 30 days of attendance records, leave and balance records, payroll, performance reviews, job openings, candidates, and notifications. It does not delete other organization data. Existing account passwords are preserved; newly created employee accounts use `DEMO_EMPLOYEE_PASSWORD` if set, otherwise `Demo-Employee-123`.
 
 5. Optional: create a separate HR account manually:
 
@@ -84,7 +86,7 @@ render.yaml      One-click Render Blueprint
    npm run create:hr-user
    ```
 
-6. To add 50 more employee profiles with portal logins and sample attendance, leave, payroll, and review data, add `DEMO_EMPLOYEE_01_EMAIL` / `DEMO_EMPLOYEE_01_PASSWORD` through `DEMO_EMPLOYEE_50_EMAIL` / `DEMO_EMPLOYEE_50_PASSWORD` to your ignored local `.env`, then run:
+6. To add 50 more employee profiles with portal logins and 30 days of sample attendance, leave, payroll, review data, an HR-assigned internal task, and a Northstar partner-project task for each, add `DEMO_EMPLOYEE_01_EMAIL` / `DEMO_EMPLOYEE_01_PASSWORD` through `DEMO_EMPLOYEE_50_EMAIL` / `DEMO_EMPLOYEE_50_PASSWORD` to your ignored local `.env`, then run:
 
    ```sh
    npm run seed:employees
@@ -131,6 +133,7 @@ Import `postman/PeopleDesk.postman_collection.json` to try the API manually. All
 | `POST` | `/api/auth/logout` | Revoke the current token |
 | `POST` | `/api/auth/forgot-password` | Request a reset link (generic response, rate-limited) |
 | `POST` | `/api/auth/reset-password` | Set a new password with a single-use token |
+| `POST` | `/api/auth/accept-partner-invite` | Accept an invite-only partner project invitation |
 | `GET` | `/api/auth/me` | Current account |
 
 ### HR and admin endpoints
@@ -159,7 +162,46 @@ The employee ID always comes from the authenticated account, never from the requ
 | `POST` | `/api/employee-portal/attendance/check-in` | Check in |
 | `PATCH` | `/api/employee-portal/attendance/:id/checkout` | Check out |
 | `POST` | `/api/employee-portal/leaves` | Request leave |
+| `POST` | `/api/employee-portal/support` | Email a grievance or issue to administrator accounts |
 | `POST` | `/api/employee-portal/profile-changes` | Request a contact detail change |
+
+### Organization collaboration endpoints
+
+The shared `/api/collaboration` workspace is available to authenticated HR, admin, and employee accounts. Employees see and update their assigned tasks and onboarding checklists; HR/admins can assign work and publish meeting minutes and organization updates. Task comments support @mentions, and task assignment/status changes create notifications. Due-today/tomorrow reminders are created when an employee loads notifications, so reminders are not pushed while the employee is away from the app. Task lists can be filtered by status, assignee, and due date, or viewed on a month calendar.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/collaboration` | List shared minutes, to-dos, announcements, role-visible tasks, comments, and onboarding checklists |
+| `POST` | `/api/collaboration/meetings` | Add meeting minutes (HR/admin) |
+| `POST`, `PATCH` | `/api/collaboration/todos`, `/api/collaboration/todos/:id` | Add a shared to-do or update its completion |
+| `POST` | `/api/collaboration/tasks` | Assign work to an employee (HR/admin) |
+| `PATCH` | `/api/collaboration/tasks/:id/status` | Update assigned task status |
+| `POST` | `/api/collaboration/tasks/:id/comments` | Comment on a task and notify mentioned employees |
+| `POST` | `/api/collaboration/onboarding` | Create an employee onboarding checklist (HR/admin) |
+| `PATCH` | `/api/collaboration/onboarding/:id/items/:itemId` | Update checklist item completion |
+| `POST` | `/api/collaboration/announcements` | Publish an organization update (HR/admin) |
+
+### Cross-company collaboration
+
+HR/admins can create invite-only partner projects and send company invitations from the **Partner projects → Invitations & requests** section. A partner can also submit a collaboration proposal from its partner portal. HR/admins receive in-app notifications and, when SMTP is configured, an email; they can accept to create the shared project or decline and send a response. The partner sees request status and receives an in-app notification. Each project is isolated from the internal organization workspace and the existing `/api/collaboration` endpoints remain unavailable to partner accounts. External collaborators accept a time-limited invitation, create a partner account, and can only see projects they belong to. Internal employees must be added to a project by HR/admin before they can access it. Project members can coordinate tasks, comments, minutes, updates, and files; task changes and comments notify other project members, and the Activity tab gives a recent project history. Uploads are limited to 10 MB each and 100 MB per project, and stored in MongoDB GridFS. Configure `APP_URL`, `ORGANIZATION_NAME`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `MAIL_FROM` for email invitations and inbound proposal notices. If SMTP is unavailable, HR/admins can copy and share the generated invite link.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/external-collaboration` | List projects visible to the signed-in member |
+| `POST` | `/api/external-collaboration/requests` | Partner submits a company-to-company collaboration proposal |
+| `PATCH` | `/api/external-collaboration/requests/:id/respond` | HR/admin accepts or declines a company request |
+| `POST` | `/api/external-collaboration/projects` | Create a partner project and invitation (HR/admin) |
+| `GET` | `/api/external-collaboration/projects/:id` | Read a project and its member-visible collaboration data |
+| `POST` | `/api/external-collaboration/projects/:id/invites` | Invite a partner to an existing project (HR/admin) |
+| `POST` | `/api/external-collaboration/projects/:id/members` | Add an internal employee to a project (HR/admin) |
+| `POST` | `/api/external-collaboration/projects/:id/tasks` | Create a shared project task |
+| `PATCH` | `/api/external-collaboration/projects/:id/tasks/:taskId` | Update a task status (assignee or HR/admin) |
+| `POST` | `/api/external-collaboration/projects/:id/tasks/:taskId/comments` | Add a project task comment |
+| `POST` | `/api/external-collaboration/projects/:id/meetings` | Add shared meeting minutes |
+| `POST` | `/api/external-collaboration/projects/:id/announcements` | Post a project update |
+| `POST` | `/api/external-collaboration/projects/:id/files` | Upload a shared project file |
+| `GET` | `/api/external-collaboration/projects/:id/files/:fileId` | Download a shared project file |
+| `POST` | `/api/auth/accept-partner-invite` | Accept an invitation and create or join a partner account |
 
 ### Operations endpoints
 
@@ -199,9 +241,11 @@ The **Forgot password?** link is available on both sign-in portals. Configure th
 | `SMTP_SECURE` | Set to `true` for implicit TLS on port 465; otherwise `false` |
 | `SMTP_USER` | SMTP account username |
 | `SMTP_PASSWORD` | SMTP password or provider-issued app password |
-| `MAIL_FROM` | Verified sender address, e.g. `PeopleDesk <no-reply@example.com>` |
+| `MAIL_FROM` | Verified sender address, e.g. `PeopleDesk <no-reply@example.com>`; used for password-reset and employee support emails |
 
 Use credentials from an email provider that permits application SMTP sending, and keep the SMTP password in your environment file or hosting provider secrets. Reset links are single-use, expire after 30 minutes, and are stored only as SHA-256 hashes. Requests are rate-limited and use a generic response to avoid confirming whether an email belongs to an account. For local development without SMTP, set `DEV_PASSWORD_RESET=true`, restart the API, and submit the reset request from `localhost`; the browser will show a local one-time link only when the email and portal match an account. Never enable this option in a deployed environment. In production, configure SMTP instead. A successful password reset invalidates that account's existing sessions; signing out revokes the current JWT.
+
+Employee grievances submitted through **Contact support** are emailed to the administrator accounts provisioned in the database. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `MAIL_FROM`; without SMTP settings, support requests cannot be sent.
 
 ## Production deployment
 

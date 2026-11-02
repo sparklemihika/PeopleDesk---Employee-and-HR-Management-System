@@ -5,6 +5,8 @@ import {
 } from "recharts";
 import StatusBadge from "../components/StatusBadge.jsx";
 import SupportChatbot from "../components/SupportChatbot.jsx";
+import CollaborationWorkspace from "../components/CollaborationWorkspace.jsx";
+import ExternalCollaboration from "../components/ExternalCollaboration.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
 import ProfileAvatar from "../components/ProfileAvatar.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -35,6 +37,9 @@ export default function EmployeePortal() {
   const [notice, setNotice] = useState("");
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportSaving, setSupportSaving] = useState(false);
+  const [supportError, setSupportError] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
   const [welcomeRotation, setWelcomeRotation] = useState({ x: 0, y: 0 });
 
@@ -121,6 +126,26 @@ export default function EmployeePortal() {
     }
   }
 
+  async function submitSupportRequest(event) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const payload = Object.fromEntries(formData.entries());
+    setSupportSaving(true);
+    setSupportError("");
+    try {
+      const result = await api("/employee-portal/support", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setSupportOpen(false);
+      setNotice(result.message);
+    } catch (requestError) {
+      setSupportError(requestError.message);
+    } finally {
+      setSupportSaving(false);
+    }
+  }
+
   async function markNotificationRead(notification) {
     try {
       await api(`/operations/notifications/${notification._id}/read`, { method: "PATCH", body: JSON.stringify({}) });
@@ -159,7 +184,8 @@ export default function EmployeePortal() {
 
   const employee = data?.employee;
   const attendance = data?.todayAttendance;
-  const recentAttendance = [...(data?.attendance || [])].slice(0, 7).reverse().map((item) => ({
+  const attendanceHistory = data?.attendance || [];
+  const recentAttendance = [...attendanceHistory].slice(0, 7).reverse().map((item) => ({
     day: new Date(item.date).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
     hours: Number(item.hoursWorked || 0),
     status: item.status || "Present",
@@ -167,7 +193,7 @@ export default function EmployeePortal() {
   const personalAttendanceMix = Object.entries(personalAttendanceColors).map(([name, color]) => ({
     name,
     color,
-    value: recentAttendance.filter((item) => item.status === name).length,
+    value: attendanceHistory.filter((item) => item.status === name).length,
   })).filter((item) => item.value > 0);
   const leaveBalances = data?.leaveBalances || [];
   const personalLeaveRequests = data?.leaves || [];
@@ -198,7 +224,19 @@ export default function EmployeePortal() {
     <main className="employee-portal">
       <header className="employee-topbar">
         <Link className="brand employee-brand" to="/employee"><span className="brand-mark">P</span><span className="brand-name">PeopleDesk<small>EMPLOYEE PORTAL</small></span></Link>
-        <div className="employee-user"><ThemeToggle /><ProfileAvatar name={user?.name || "Employee"} /><span className="employee-user-name"><strong>{user?.name}</strong><small>Employee</small></span><button className="btn btn-sm btn-outline-primary employee-support-button" onClick={() => setChatOpen(true)}>Contact support</button><button className="btn btn-sm btn-outline-secondary" onClick={signOut}>Sign out</button></div>
+        <div className="employee-user">
+          <div className="employee-identity">
+            <ProfileAvatar name={user?.name || "Employee"} />
+            <span className="employee-user-name"><strong>{user?.name || "Employee"}</strong><small>Employee workspace</small></span>
+          </div>
+          <nav className="employee-actions" aria-label="Employee tools">
+            <ThemeToggle />
+            <CollaborationWorkspace user={user} />
+            <ExternalCollaboration user={user} />
+            <button type="button" className="btn btn-sm btn-outline-primary employee-support-button" aria-label="Contact support" title="Contact support" onClick={() => { setSupportError(""); setSupportOpen(true); }}>Contact support</button>
+            <button type="button" className="btn btn-sm btn-outline-secondary" aria-label="Sign out" onClick={signOut}>Sign out</button>
+          </nav>
+        </div>
       </header>
       <div className="employee-content">
         {error && <div className="alert alert-danger" role="alert">{error}</div>}
@@ -240,8 +278,8 @@ export default function EmployeePortal() {
             {!hasCheckedIn ? <button className="btn btn-primary" onClick={handleCheckIn} disabled={saving}>{saving ? "Recording…" : "Check in"}</button> : !hasCheckedOut ? <button className="btn btn-outline-primary" onClick={handleCheckOut} disabled={saving}>{saving ? "Recording…" : "Check out"}</button> : <StatusBadge>{attendance.status}</StatusBadge>}
           </section>
           <section className="employee-attendance-insights">
-            <div className="employee-attendance-chart panel"><div className="panel-heading"><div><h2>My attendance trends</h2><p>Hours recorded across your latest 7 workdays</p></div><img src="/attendance-hero.svg" alt="" /></div><div className="employee-personal-chart-canvas"><ResponsiveContainer width="100%" height="100%"><BarChart data={recentAttendance} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}><CartesianGrid stroke="var(--border)" vertical={false} /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 9 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 9 }} /><Tooltip contentStyle={{ background: "var(--panel)", borderColor: "var(--border)", borderRadius: 9, color: "var(--text)", fontSize: 10 }} /><Bar dataKey="hours" name="Hours worked" fill="#6d5ce8" radius={[5, 5, 0, 0]} maxBarSize={32} /></BarChart></ResponsiveContainer>{!recentAttendance.length && <div className="module-chart-empty">Your attendance chart will appear after your first check-in.</div>}</div></div>
-            <div className="employee-attendance-chart panel"><div className="panel-heading"><div><h2>Recent status</h2><p>Attendance mix for your latest records</p></div></div><div className="employee-status-chart-layout"><div className="employee-status-chart-canvas"><ResponsiveContainer width="100%" height="100%"><PieChart><Tooltip contentStyle={{ background: "var(--panel)", borderColor: "var(--border)", borderRadius: 9, color: "var(--text)", fontSize: 10 }} /><Pie data={personalAttendanceMix.length ? personalAttendanceMix : [{ name: "No records", value: 1 }]} dataKey="value" nameKey="name" innerRadius="57%" outerRadius="82%" paddingAngle={3} stroke="none">{(personalAttendanceMix.length ? personalAttendanceMix : [{ name: "No records", color: "#dfe2eb" }]).map((item) => <Cell key={item.name} fill={item.color} />)}</Pie></PieChart></ResponsiveContainer>{!personalAttendanceMix.length && <div className="attendance-mix-empty">No records yet</div>}</div><div className="attendance-mix-legend">{Object.entries(personalAttendanceColors).map(([status, color]) => <div key={status}><i style={{ background: color }} /><span>{status}</span><strong>{personalAttendanceMix.find((item) => item.name === status)?.value || 0}</strong></div>)}</div></div></div>
+            <div className="employee-attendance-chart panel"><div className="panel-heading"><div><h2>My attendance trends</h2><p>Hours recorded across your latest 7 records</p></div><img src="/attendance-hero.svg" alt="" /></div><div className="employee-personal-chart-canvas"><ResponsiveContainer width="100%" height="100%"><BarChart data={recentAttendance} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}><CartesianGrid stroke="var(--border)" vertical={false} /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 9 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 9 }} /><Tooltip contentStyle={{ background: "var(--panel)", borderColor: "var(--border)", borderRadius: 9, color: "var(--text)", fontSize: 10 }} /><Bar dataKey="hours" name="Hours worked" fill="#6d5ce8" radius={[5, 5, 0, 0]} maxBarSize={32} /></BarChart></ResponsiveContainer>{!recentAttendance.length && <div className="module-chart-empty">Your attendance chart will appear after your first check-in.</div>}</div></div>
+            <div className="employee-attendance-chart panel"><div className="panel-heading"><div><h2>Recent status</h2><p>Attendance mix for the past 30 days</p></div></div><div className="employee-status-chart-layout"><div className="employee-status-chart-canvas"><ResponsiveContainer width="100%" height="100%"><PieChart><Tooltip contentStyle={{ background: "var(--panel)", borderColor: "var(--border)", borderRadius: 9, color: "var(--text)", fontSize: 10 }} /><Pie data={personalAttendanceMix.length ? personalAttendanceMix : [{ name: "No records", value: 1 }]} dataKey="value" nameKey="name" innerRadius="57%" outerRadius="82%" paddingAngle={3} stroke="none">{(personalAttendanceMix.length ? personalAttendanceMix : [{ name: "No records", color: "#dfe2eb" }]).map((item) => <Cell key={item.name} fill={item.color} />)}</Pie></PieChart></ResponsiveContainer>{!personalAttendanceMix.length && <div className="attendance-mix-empty">No records yet</div>}</div><div className="attendance-mix-legend">{Object.entries(personalAttendanceColors).map(([status, color]) => <div key={status}><i style={{ background: color }} /><span>{status}</span><strong>{personalAttendanceMix.find((item) => item.name === status)?.value || 0}</strong></div>)}</div></div></div>
           </section>
           <section className="attendance-overview module-feature-overview employee-feature-overview payroll-overview">
             <div className="attendance-overview-copy"><span className="eyebrow">YOUR COMPENSATION</span><h2>Your pay, clearly in view.</h2><p>Follow your net pay history and stay up to date on payroll processing.</p><div className="attendance-overview-stats"><span><strong>{data.payroll.length}</strong> recent pay records</span><span><strong>{personalPayrollStatusMix.find((item) => item.name === "Processed")?.value || 0}</strong> processed</span></div></div>
@@ -267,10 +305,10 @@ export default function EmployeePortal() {
               </tbody></table></div>
             </section>
             <section className="panel">
-              <div className="panel-heading"><div><h2>My attendance</h2><p>Your recent check-in history</p></div></div>
-              <div className="table-responsive"><table className="table align-middle data-table"><thead><tr><th>Date</th><th>Check-in</th><th>Check-out</th><th>Hours</th></tr></thead><tbody>
-                {data.attendance.map((item) => <tr key={item._id}><td>{formatDate(item.date)}</td><td>{item.checkIn}</td><td>{item.checkOut || "—"}</td><td>{item.hoursWorked ? `${item.hoursWorked}h` : "—"}</td></tr>)}
-                {!data.attendance.length && <tr><td className="empty-state" colSpan="4">No attendance records yet.</td></tr>}
+              <div className="panel-heading"><div><h2>My attendance</h2><p>Check-in history for the past 30 days</p></div></div>
+              <div className="table-responsive"><table className="table align-middle data-table"><thead><tr><th>Date</th><th>Status</th><th>Check-in</th><th>Check-out</th><th>Hours</th></tr></thead><tbody>
+                {data.attendance.map((item) => <tr key={item._id}><td>{formatDate(item.date)}</td><td><StatusBadge>{item.status || "Present"}</StatusBadge></td><td>{item.checkIn || "—"}</td><td>{item.checkOut || "—"}</td><td>{item.hoursWorked ? `${item.hoursWorked}h` : "—"}</td></tr>)}
+                {!data.attendance.length && <tr><td className="empty-state" colSpan="5">No attendance records in the past 30 days.</td></tr>}
               </tbody></table></div>
             </section>
             <section className="panel">
@@ -292,6 +330,13 @@ export default function EmployeePortal() {
       {profileOpen && <div className="modal-backdrop-custom" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProfileOpen(false); }}><section className="form-modal" role="dialog" aria-modal="true" aria-labelledby="employee-profile-title">
         <div className="panel-heading"><div><h2 id="employee-profile-title">Request a profile update</h2><p>HR will review changes to your contact details.</p></div><button className="modal-close" onClick={() => setProfileOpen(false)} aria-label="Close">×</button></div>
         <form onSubmit={submitProfileChange}><div className="modal-form-grid"><div className="form-field"><label htmlFor="profile-email">Email address</label><input className="form-control" id="profile-email" name="email" type="email" defaultValue={employee?.email} /></div><div className="form-field"><label htmlFor="profile-phone">Phone number</label><input className="form-control" id="profile-phone" name="phone" type="tel" defaultValue={employee?.phone || ""} maxLength="30" /></div></div><div className="modal-actions"><button type="button" className="btn btn-light" onClick={() => setProfileOpen(false)}>Cancel</button><button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Submitting…" : "Submit for review"}</button></div></form>
+      </section></div>}
+      {supportOpen && <div className="modal-backdrop-custom" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !supportSaving) setSupportOpen(false); }}><section className="form-modal support-request-modal" role="dialog" aria-modal="true" aria-labelledby="employee-support-title">
+        <div className="panel-heading"><div><h2 id="employee-support-title">Contact support</h2><p>Your grievance or issue will be emailed directly to the administrators.</p></div><button className="modal-close" onClick={() => setSupportOpen(false)} aria-label="Close" disabled={supportSaving}>×</button></div>
+        <form onSubmit={submitSupportRequest}><div className="modal-form-grid">
+          <div className="form-field form-field-wide"><label htmlFor="support-subject">Subject</label><input className="form-control" id="support-subject" name="subject" required maxLength="120" placeholder="Briefly describe your issue" /></div>
+          <div className="form-field form-field-wide"><label htmlFor="support-message">Grievance or issue</label><textarea className="form-control" id="support-message" name="message" required maxLength="5000" rows="7" placeholder="Explain what happened and how the administrators can help." /></div>
+        </div>{supportError && <div className="alert alert-danger py-2 mt-3 mb-0" role="alert">{supportError}</div>}<div className="modal-actions"><button type="button" className="btn btn-light" onClick={() => setSupportOpen(false)} disabled={supportSaving}>Cancel</button><button type="submit" className="btn btn-primary" disabled={supportSaving}>{supportSaving ? "Sending…" : "Email administrators"}</button></div></form>
       </section></div>}
       <SupportChatbot open={chatOpen} onOpen={() => setChatOpen(true)} onClose={() => setChatOpen(false)} />
     </main>

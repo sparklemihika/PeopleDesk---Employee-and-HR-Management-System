@@ -5,7 +5,9 @@ import ThemeToggle from "../components/ThemeToggle.jsx";
 
 export default function ForgotPassword() {
   const [searchParams] = useSearchParams();
-  const portal = searchParams.get("portal") === "employee" ? "employee" : "hr";
+  const requestedPortal = searchParams.get("portal");
+  const portal = requestedPortal === "employee" || requestedPortal === "partner" ? requestedPortal : "hr";
+  const loginUrl = portal === "employee" ? "/employee-login" : portal === "partner" ? "/partner-login" : "/login";
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -35,7 +37,7 @@ export default function ForgotPassword() {
       <section className="login-card">
         <div className="recovery-theme-toggle"><ThemeToggle /></div>
         <div className="brand login-brand"><span className="brand-mark">P</span><span className="brand-name">PeopleDesk<small>PEOPLE &amp; CULTURE</small></span></div>
-        <div className="eyebrow">{portal === "employee" ? "EMPLOYEE PORTAL" : "HR & ADMIN PORTAL"}</div>
+        <div className="eyebrow">{portal === "employee" ? "EMPLOYEE PORTAL" : portal === "partner" ? "PARTNER PORTAL" : "HR & ADMIN PORTAL"}</div>
         <h1>Forgot your password?</h1>
         <div className="recovery-stage" key={submitted ? "success" : "form"}>
           {submitted ? (
@@ -43,7 +45,7 @@ export default function ForgotPassword() {
               <span className="reset-success-icon">✓</span>
               <p>{resetUrl ? "Email delivery is not configured. Use this local development reset link; it expires in 30 minutes and works once." : "If an account matches that email and portal, a password reset link will be sent. Check your inbox and spam folder."}</p>
               {resetUrl && <a className="btn btn-outline-primary login-submit" href={resetUrl}>Open local reset link</a>}
-              <Link to={portal === "employee" ? "/employee-login" : "/login"} className="btn btn-primary login-submit">Back to sign in</Link>
+              <Link to={loginUrl} className="btn btn-primary login-submit">Back to sign in</Link>
             </div>
           ) : (
             <>
@@ -58,7 +60,7 @@ export default function ForgotPassword() {
             </>
           )}
         </div>
-        <Link className="back-to-login" to={portal === "employee" ? "/employee-login" : "/login"}>← Back to sign in</Link>
+        <Link className="back-to-login" to={loginUrl}>← Back to sign in</Link>
       </section>
     </main>
   );

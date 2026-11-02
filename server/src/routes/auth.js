@@ -2,10 +2,13 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 import { rateLimit } from "express-rate-limit";
-import { Employee, PasswordReset, RevokedToken, User } from "../models/index.js";
+import {
+  Employee, ExternalProject, ExternalProjectInvite, ExternalProjectMember,
+  Notification, PasswordReset, RevokedToken, User,
+} from "../models/index.js";
 import { requireAuth } from "../middleware/auth.js";
+import { createMailer } from "../utils/email.js";
 
 const router = Router();
 const loginLimiter = rateLimit({
@@ -29,18 +32,14 @@ const changePasswordLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: "Too many password reset attempts. Try again later." },
 });
+const inviteAcceptLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { message: "Too many invitation attempts. Try again later." },
+});
 const genericResetMessage = "If an account matches that email and portal, a password reset link will be sent.";
-
-function resetMailer() {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD } = process.env;
-  if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASSWORD || !process.env.MAIL_FROM) return null;
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: Number(SMTP_PORT),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: { user: SMTP_USER, pass: SMTP_PASSWORD },
-  });
-}
 
 function allowLocalResetPreview(req) {
   const address = req.ip?.replace(/^::ffff:/, "");
@@ -50,7 +49,9 @@ function allowLocalResetPreview(req) {
 }
 
 function portalRoleFilter(portal) {
-  return portal === "employee" ? { role: "employee" } : { role: { $in: ["admin", "hr"] } };
+  if (portal === "employee") return { role: "employee" };
+  if (portal === "partner") return { role: "partner" };
+  return { role: { $in: ["admin", "hr"] } };
 }
 
 function hashResetToken(token) {
@@ -59,8 +60,8 @@ function hashResetToken(token) {
 
 router.post("/login", loginLimiter, async (req, res) => {
   const portal = req.body.portal;
-  if (!["hr", "employee"].includes(portal)) {
-    return res.status(400).json({ message: "Choose the HR or employee sign-in portal." });
+  if (!["hr", "employee", "partner"].includes(portal)) {
+    return res.status(400).json({ message: "Choose the HR, employee, or partner sign-in portal." });
   }
   const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
   const password = typeof req.body.password === "string" ? req.body.password : "";
@@ -70,7 +71,9 @@ router.post("/login", loginLimiter, async (req, res) => {
   const user = await User.findOne({ email }).select("+passwordHash");
   const roleMatchesPortal = portal === "employee"
     ? user?.role === "employee"
-    : user?.role === "hr" || user?.role === "admin";
+    : portal === "partner"
+      ? user?.role === "partner"
+      : user?.role === "hr" || user?.role === "admin";
   if (!user || !roleMatchesPortal || !(await user.verifyPassword(password))) {
     return res.status(401).json({ message: "Email or password is incorrect." });
   }
@@ -82,6 +85,9 @@ router.post("/login", loginLimiter, async (req, res) => {
     if (!employee || employee.status === "Inactive") {
       return res.status(403).json({ message: "This employee account is inactive or unavailable. Contact HR." });
     }
+  }
+  if (user.role === "partner" && !user.partnerOrganization) {
+    return res.status(403).json({ message: "This partner account is not linked to an organization. Contact your project host." });
   }
   const token = jwt.sign(
     { sub: user.id, sessionVersion: user.sessionVersion },
@@ -97,6 +103,53 @@ router.post("/login", loginLimiter, async (req, res) => {
   });
 });
 
+router.post("/accept-partner-invite", inviteAcceptLimiter, async (req, res) => {
+  const token = typeof req.body.token === "string" ? req.body.token : "";
+  const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+  if (!/^[\w-]{43}$/.test(token) || !name || name.length > 100 || password.length < 12 || password.length > 128) {
+    return res.status(400).json({ message: "Enter your name and a password of 12 to 128 characters using a valid invitation link." });
+  }
+  const tokenHash = hashResetToken(token);
+  const invite = await ExternalProjectInvite.findOne({
+    tokenHash,
+    acceptedAt: null,
+    status: "Pending",
+    expiresAt: { $gt: new Date() },
+  }).populate("invitedBy", "_id");
+  if (!invite) return res.status(400).json({ message: "This invitation is invalid, expired, or already used. Ask the project host for a new invite." });
+  const project = await ExternalProject.findById(invite.project).select("partnerOrganization");
+  if (!project) return res.status(400).json({ message: "The invited project is no longer available." });
+  let user = await User.findOne({ email: invite.email });
+  if (user && (user.role !== "partner" || String(user.partnerOrganization) !== String(project.partnerOrganization))) {
+    return res.status(409).json({ message: "This email already belongs to another PeopleDesk account. Ask the project host to invite your registered partner account." });
+  }
+  if (!user) {
+    user = await User.create({
+      name,
+      email: invite.email,
+      passwordHash: await bcrypt.hash(password, 12),
+      role: "partner",
+      partnerOrganization: project.partnerOrganization,
+    });
+  }
+  await ExternalProjectMember.updateOne(
+    { project: invite.project, user: user._id },
+    { $setOnInsert: { project: invite.project, user: user._id, kind: "partner" } },
+    { upsert: true, runValidators: true },
+  );
+  invite.acceptedAt = new Date();
+  invite.status = "Accepted";
+  await invite.save();
+  await Notification.create({
+    user: invite.invitedBy._id,
+    title: "Partner invitation accepted",
+    message: `${user.name} accepted the invitation to "${project.name}".`,
+    link: "/",
+  });
+  return res.json({ message: "Invitation accepted. You can now sign in to your partner workspace." });
+});
+
 router.post("/logout", requireAuth, async (req, res) => {
   await RevokedToken.updateOne(
     { jti: req.authTokenId },
@@ -108,14 +161,14 @@ router.post("/logout", requireAuth, async (req, res) => {
 
 router.post("/forgot-password", resetLimiter, async (req, res) => {
   const portal = req.body.portal;
-  if (!["hr", "employee"].includes(portal)) {
-    return res.status(400).json({ message: "Choose the HR or employee portal." });
+  if (!["hr", "employee", "partner"].includes(portal)) {
+    return res.status(400).json({ message: "Choose the HR, employee, or partner portal." });
   }
   const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
   if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ message: "Enter a valid email address." });
   }
-  const mailer = resetMailer();
+  const mailer = createMailer();
   const localResetPreview = allowLocalResetPreview(req);
   if (!mailer && !localResetPreview) {
     return res.status(503).json({ message: "Password reset email is not configured. Contact your system administrator." });
@@ -184,7 +237,10 @@ router.post("/reset-password", changePasswordLimiter, async (req, res) => {
   ).select("name email role employee");
   if (!user) return res.status(400).json({ message: "This password reset link is no longer valid." });
   await PasswordReset.deleteMany({ user: user.id });
-  return res.json({ message: "Password reset successfully. Please sign in with your new password.", portal: user.role === "employee" ? "employee" : "hr" });
+  return res.json({
+    message: "Password reset successfully. Please sign in with your new password.",
+    portal: user.role === "employee" ? "employee" : user.role === "partner" ? "partner" : "hr",
+  });
 });
 
 router.get("/me", requireAuth, (req, res) => {

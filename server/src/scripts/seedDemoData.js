@@ -6,6 +6,10 @@ import {
   Attendance,
   Candidate,
   Employee,
+  ExternalOrganization,
+  ExternalProject,
+  ExternalProjectMember,
+  ExternalProjectTask,
   JobOpening,
   LeaveBalance,
   LeaveRequest,
@@ -13,6 +17,7 @@ import {
   Payroll,
   PerformanceReview,
   User,
+  WorkTask,
 } from "../models/index.js";
 
 const { MONGODB_URI } = process.env;
@@ -62,6 +67,24 @@ const employeesToSeed = [
     salary: 65000,
   },
 ];
+const demoTasksByDepartment = {
+  Engineering: {
+    title: "Complete the employee dashboard review",
+    description: "Review the employee dashboard flow and share any usability or bug findings with HR.",
+  },
+  Operations: {
+    title: "Prepare the weekly operations summary",
+    description: "Summarize this week's operational progress, open items, and blockers for the team.",
+  },
+  Finance: {
+    title: "Review the monthly expense records",
+    description: "Check the sample expense records for accuracy and note any items that need follow-up.",
+  },
+  Marketing: {
+    title: "Draft the employee engagement update",
+    description: "Prepare a short draft highlighting upcoming team activities and employee updates.",
+  },
+};
 
 async function upsertUser({ name, email, role, employee, password }) {
   const existing = await User.findOne({ email }).select("+passwordHash");
@@ -86,14 +109,16 @@ async function main() {
     password: hrPassword,
   });
 
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
   const seededEmployees = [];
-  for (const employeeData of employeesToSeed) {
+  for (const [index, employeeData] of employeesToSeed.entries()) {
     const employee = await Employee.findOneAndUpdate(
       { email: employeeData.email },
       { $set: { ...employeeData, employmentType: "Full-time", status: "Active" } },
       { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
     );
-    await upsertUser({
+    const employeeAccount = await upsertUser({
       name: employee.name,
       email: employee.email,
       role: "employee",
@@ -101,10 +126,40 @@ async function main() {
       password: demoPassword,
     });
     seededEmployees.push(employee);
+    const demoTask = demoTasksByDepartment[employee.department] || {
+      title: `Prepare the ${employee.department} team update`,
+      description: `Share current priorities, progress, and blockers for the ${employee.department} team.`,
+    };
+    const dueDate = new Date(today);
+    dueDate.setUTCDate(dueDate.getUTCDate() + 3 + index);
+    const task = await WorkTask.findOneAndUpdate(
+      { assignedEmployee: employee._id, title: demoTask.title },
+      {
+        $setOnInsert: {
+          ...demoTask,
+          assignedEmployee: employee._id,
+          assignedBy: hr._id,
+          dueDate,
+          status: "To do",
+        },
+      },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+    );
+    await Notification.updateOne(
+      { user: employeeAccount._id, eventKey: `demo-task-assigned:${task._id}` },
+      {
+        $setOnInsert: {
+          user: employeeAccount._id,
+          eventKey: `demo-task-assigned:${task._id}`,
+          title: "New task assigned",
+          message: `HR assigned you "${task.title}".`,
+          link: "/employee",
+        },
+      },
+      { upsert: true, runValidators: true },
+    );
   }
 
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
   const attendanceDate = new Date(today);
   for (const [index, employee] of seededEmployees.entries()) {
     const present = index !== 1;
@@ -121,6 +176,27 @@ async function main() {
       },
       { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
     );
+
+    for (let dayOffset = 1; dayOffset < 30; dayOffset += 1) {
+      const date = new Date(attendanceDate);
+      date.setUTCDate(date.getUTCDate() - dayOffset);
+      const status = ["Present", "Present", "Late", "Present", "Absent", "On leave"][(index + dayOffset) % 6];
+      const working = status === "Present" || status === "Late";
+      const checkIn = working ? `${status === "Late" ? "10" : String(8 + ((index + dayOffset) % 2)).padStart(2, "0")}:30` : "";
+      await Attendance.findOneAndUpdate(
+        { employee: employee._id, date },
+        {
+          $set: {
+            checkIn,
+            checkOut: working ? "17:00" : "",
+            hoursWorked: working ? 8 : 0,
+            status,
+            notes: "Competition demo attendance record",
+          },
+        },
+        { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+      );
+    }
 
     if (index < 2) {
       const startDate = new Date(today);
@@ -175,6 +251,76 @@ async function main() {
     );
   }
 
+  const demoPartnerOrganization = await ExternalOrganization.findOneAndUpdate(
+    { nameKey: "northstar-partner-demo" },
+    { $setOnInsert: { name: "Northstar Partner Co.", nameKey: "northstar-partner-demo", createdBy: hr._id } },
+    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+  );
+  const demoPartnerProject = await ExternalProject.findOneAndUpdate(
+    { partnerOrganization: demoPartnerOrganization._id, name: "PeopleDesk × Northstar launch collaboration" },
+    {
+      $setOnInsert: {
+        name: "PeopleDesk × Northstar launch collaboration",
+        description: "A sample cross-company project for coordinating a shared employee experience launch.",
+        partnerOrganization: demoPartnerOrganization._id,
+        createdBy: hr._id,
+      },
+    },
+    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+  );
+  const demoProjectMembers = [hr, ...await User.find({ employee: { $in: seededEmployees.map(({ _id }) => _id) }, role: "employee" })];
+  await ExternalProjectMember.bulkWrite(demoProjectMembers.map((member) => ({
+    updateOne: {
+      filter: { project: demoPartnerProject._id, user: member._id },
+      update: { $setOnInsert: { project: demoPartnerProject._id, user: member._id, kind: "internal" } },
+      upsert: true,
+    },
+  })));
+  const demoProjectAssignments = [
+    { member: hr, title: "Coordinate the partner launch plan", description: "Align shared milestones, owners, and next steps with Northstar Partner Co." },
+    ...seededEmployees.map((employee) => {
+      const account = demoProjectMembers.find(({ employee: linkedEmployee }) => String(linkedEmployee) === String(employee._id));
+      return {
+        member: account,
+        title: `Share ${employee.department} partner launch update`,
+        description: `Summarize ${employee.department} priorities and coordinate any launch dependencies with the partner team.`,
+      };
+    }),
+  ];
+  for (const [index, assignment] of demoProjectAssignments.entries()) {
+    if (!assignment.member) continue;
+    const dueDate = new Date(today);
+    dueDate.setUTCDate(dueDate.getUTCDate() + 5 + index);
+    const task = await ExternalProjectTask.findOneAndUpdate(
+      { project: demoPartnerProject._id, title: assignment.title },
+      {
+        $setOnInsert: {
+          project: demoPartnerProject._id,
+          title: assignment.title,
+          description: assignment.description,
+          status: "To do",
+          dueDate,
+          assignee: assignment.member._id,
+          createdBy: hr._id,
+        },
+      },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+    );
+    await Notification.updateOne(
+      { user: assignment.member._id, eventKey: `demo-partner-task:${task._id}` },
+      {
+        $setOnInsert: {
+          user: assignment.member._id,
+          eventKey: `demo-partner-task:${task._id}`,
+          title: "Partner project task assigned",
+          message: `HR assigned you "${task.title}" in ${demoPartnerProject.name}.`,
+          link: assignment.member.role === "employee" ? "/employee" : "/",
+        },
+      },
+      { upsert: true, runValidators: true },
+    );
+  }
+
   const openings = [
     { title: "Senior Product Designer", department: "Design", location: "Remote", employmentType: "Full-time", description: "Shape accessible employee experiences and lead product design across PeopleDesk.", status: "Open" },
     { title: "Data Analyst", department: "Operations", location: "Hybrid", employmentType: "Full-time", description: "Turn people operations data into clear, actionable insights.", status: "Open" },
@@ -215,7 +361,7 @@ async function main() {
     );
   }
 
-  console.log(`Demo data uploaded. HR: Mihika Sharma (${hr.email}); employees: ${seededEmployees.map(({ name }) => name).join(", ")}; ${openings.length} job openings and ${candidates.length} candidates.`);
+  console.log(`Demo data uploaded. HR: Mihika Sharma (${hr.email}); employees: ${seededEmployees.map(({ name }) => name).join(", ")}; each employee and HR have tasks in the Northstar partner project; ${openings.length} job openings and ${candidates.length} candidates.`);
   console.log(`Employee demo password for newly created accounts: ${demoPassword}`);
 }
 

@@ -13,10 +13,15 @@ export async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  if (options.body && !(options.body instanceof FormData)) {
+  if (typeof options.body === "string") {
     headers.set("Content-Type", "application/json");
   }
-  const response = await fetch(`${API_BASE}/api${path}`, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api${path}`, { ...options, headers });
+  } catch (error) {
+    throw new Error("Cannot connect to the PeopleDesk server. Check your connection and try again.", { cause: error });
+  }
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401 && path !== "/auth/login") {
@@ -39,6 +44,25 @@ export async function download(path, filename) {
   }
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function downloadFile(path, filename) {
+  const headers = new Headers();
+  const token = getToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${API_BASE}/api${path}`, { headers });
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({}));
+    throw new Error(result.message || "The file could not be downloaded.");
+  }
+  const url = URL.createObjectURL(await response.blob());
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;

@@ -4,6 +4,8 @@ import { useAuth } from "../context/AuthContext.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import SupportChatbot from "./SupportChatbot.jsx";
 import ProfileAvatar from "./ProfileAvatar.jsx";
+import CollaborationWorkspace from "./CollaborationWorkspace.jsx";
+import ExternalCollaboration from "./ExternalCollaboration.jsx";
 
 const navigation = [
   { to: "/", label: "Dashboard", icon: "⌂", end: true },
@@ -61,6 +63,8 @@ export default function Shell() {
         <header className="topbar">
           <div className="topbar-left"><button className="menu-toggle" onClick={() => setMenuOpen(true)} aria-label="Open navigation">☰</button><div className="breadcrumb">Workspace <span>/</span> <strong>{pageName}</strong></div></div>
           <div className="top-actions">
+            <CollaborationWorkspace user={user} />
+            <ExternalCollaboration user={user} />
             <ThemeToggle />
             <span className="top-date">{new Date().toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span>
             <ProfileAvatar name={user?.name || "HR Administrator"} role="hr" size="topbar" />

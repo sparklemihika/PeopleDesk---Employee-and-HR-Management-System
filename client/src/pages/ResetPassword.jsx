@@ -6,8 +6,9 @@ import ThemeToggle from "../components/ThemeToggle.jsx";
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
-  const portal = searchParams.get("portal") === "employee" ? "employee" : "hr";
-  const loginUrl = portal === "employee" ? "/employee-login" : "/login";
+  const requestedPortal = searchParams.get("portal");
+  const portal = requestedPortal === "employee" || requestedPortal === "partner" ? requestedPortal : "hr";
+  const loginUrl = portal === "employee" ? "/employee-login" : portal === "partner" ? "/partner-login" : "/login";
   const [form, setForm] = useState({ password: "", confirmation: "" });
   const [error, setError] = useState("");
   const [complete, setComplete] = useState(false);

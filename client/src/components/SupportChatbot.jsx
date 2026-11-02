@@ -80,10 +80,10 @@ export default function SupportChatbot({ open, onClose, onOpen }) {
 
   return (
     <>
-      {open && <section className="support-chat" role="dialog" aria-label="PeopleDesk support chatbot">
+      {open && <section className="support-chat" role="dialog" aria-modal="true" aria-label="PeopleDesk AI assistant">
         <header className="support-chat-header">
           <span className="support-chat-avatar">P</span>
-          <span className="support-chat-heading"><strong>PeopleDesk support</strong><small><i /> Help assistant</small></span>
+          <span className="support-chat-heading"><strong>PeopleDesk assistant</strong><small><i /> AI help assistant</small></span>
           <button type="button" className="support-chat-close" onClick={onClose} aria-label="Close support chat">×</button>
         </header>
         <div className="support-chat-messages" ref={messageListRef} aria-live="polite">
@@ -93,13 +93,12 @@ export default function SupportChatbot({ open, onClose, onOpen }) {
           </div>
         </div>
         <form className="support-chat-form" onSubmit={(event) => { event.preventDefault(); sendMessage(); }}>
-          <input ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask a question…" aria-label="Type your support question" maxLength={500} />
+          <input ref={inputRef} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask a question…" aria-label="Type your assistant question" maxLength={500} />
           <button type="submit" disabled={!draft.trim()} aria-label="Send message">↑</button>
         </form>
-        <a className="support-chat-email" href="mailto:support@peopledesk.example">Still need help? Email support</a>
       </section>}
-      <button type="button" className={`support-chat-launcher ${open ? "chat-open" : ""}`} onClick={open ? onClose : onOpen} aria-label={open ? "Close support chat" : "Open support chat"} aria-expanded={open}>
-        <span aria-hidden="true">{open ? "×" : "✳"}</span>{!open && <small>Support</small>}
+      <button type="button" className={`support-chat-launcher ${open ? "chat-open" : ""}`} onClick={open ? onClose : onOpen} aria-label={open ? "Close assistant" : "Open AI assistant"} aria-expanded={open}>
+        <span aria-hidden="true">{open ? "×" : "✳"}</span>{!open && <small>Assistant</small>}
       </button>
     </>
   );

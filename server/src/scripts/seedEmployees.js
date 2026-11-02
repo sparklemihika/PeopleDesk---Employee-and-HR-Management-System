@@ -4,11 +4,17 @@ import bcrypt from "bcryptjs";
 import {
   Attendance,
   Employee,
+  ExternalOrganization,
+  ExternalProject,
+  ExternalProjectMember,
+  ExternalProjectTask,
   LeaveBalance,
   LeaveRequest,
   Payroll,
   PerformanceReview,
+  Notification,
   User,
+  WorkTask,
 } from "../models/index.js";
 
 const { MONGODB_URI } = process.env;
@@ -78,6 +84,30 @@ async function seed() {
   }));
 
   await mongoose.connect(MONGODB_URI);
+  const hrAccount = await User.findOne({ role: "hr" }).sort({ createdAt: 1 });
+  if (!hrAccount) throw new Error("Create an HR account or run npm run seed:demo before seeding employee work tasks.");
+  const demoPartnerOrganization = await ExternalOrganization.findOneAndUpdate(
+    { nameKey: "northstar-partner-demo" },
+    { $setOnInsert: { name: "Northstar Partner Co.", nameKey: "northstar-partner-demo", createdBy: hrAccount._id } },
+    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+  );
+  const demoPartnerProject = await ExternalProject.findOneAndUpdate(
+    { partnerOrganization: demoPartnerOrganization._id, name: "PeopleDesk × Northstar launch collaboration" },
+    {
+      $setOnInsert: {
+        name: "PeopleDesk × Northstar launch collaboration",
+        description: "A sample cross-company project for coordinating a shared employee experience launch.",
+        partnerOrganization: demoPartnerOrganization._id,
+        createdBy: hrAccount._id,
+      },
+    },
+    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+  );
+  await ExternalProjectMember.updateOne(
+    { project: demoPartnerProject._id, user: hrAccount._id },
+    { $setOnInsert: { project: demoPartnerProject._id, user: hrAccount._id, kind: "internal" } },
+    { upsert: true, runValidators: true },
+  );
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   let newEmployeeCount = 0;
@@ -101,8 +131,9 @@ async function seed() {
     }
 
     const existingLogin = await User.findOne({ $or: [{ email: item.email }, { employee: employee._id }] });
+    let employeeAccount = existingLogin;
     if (!existingLogin) {
-      await User.create({
+      employeeAccount = await User.create({
         name: employee.name,
         email: item.email,
         passwordHash: await bcrypt.hash(item.password, 12),
@@ -112,7 +143,85 @@ async function seed() {
       newLoginCount += 1;
     }
 
-    for (let dayOffset = 0; dayOffset < 7; dayOffset += 1) {
+    const taskTemplates = {
+      Engineering: ["Review a product change", "Document a technical handoff", "Verify a feature update"],
+      Operations: ["Prepare the weekly operations summary", "Review open service requests", "Update the process checklist"],
+      Finance: ["Review monthly expense records", "Prepare a budget variance summary", "Verify sample payroll figures"],
+      Marketing: ["Draft an employee engagement update", "Review the content calendar", "Prepare a campaign performance summary"],
+      "Human Resources": ["Review the onboarding checklist", "Prepare an employee engagement update", "Check the training schedule"],
+      Design: ["Review an employee portal screen", "Prepare a design handoff", "Check accessibility of a key flow"],
+      Sales: ["Prepare a customer account update", "Review the weekly pipeline summary", "Document a customer follow-up plan"],
+      "Customer Success": ["Review customer feedback", "Prepare a support trends summary", "Document a customer success plan"],
+      Product: ["Review a product feedback summary", "Prioritize a feature request", "Prepare a release update"],
+      IT: ["Review the access checklist", "Prepare a device inventory update", "Document a support handoff"],
+    };
+    const taskTitles = taskTemplates[item.department.name] || [`Prepare the ${item.department.name} team update`];
+    const taskTitle = taskTitles[index % taskTitles.length];
+    const dueDate = new Date(today);
+    dueDate.setUTCDate(dueDate.getUTCDate() + 3 + (index % 14));
+    const task = await WorkTask.findOneAndUpdate(
+      { assignedEmployee: employee._id, title: taskTitle },
+      {
+        $setOnInsert: {
+          title: taskTitle,
+          description: `Sample ${item.department.name} work item assigned by HR. Share your progress and any blockers with the team.`,
+          assignedEmployee: employee._id,
+          assignedBy: hrAccount._id,
+          dueDate,
+          status: "To do",
+        },
+      },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+    );
+    await Notification.updateOne(
+      { user: employeeAccount._id, eventKey: `demo-task-assigned:${task._id}` },
+      {
+        $setOnInsert: {
+          user: employeeAccount._id,
+          eventKey: `demo-task-assigned:${task._id}`,
+          title: "New task assigned",
+          message: `HR assigned you "${task.title}".`,
+          link: "/employee",
+        },
+      },
+      { upsert: true, runValidators: true },
+    );
+    await ExternalProjectMember.updateOne(
+      { project: demoPartnerProject._id, user: employeeAccount._id },
+      { $setOnInsert: { project: demoPartnerProject._id, user: employeeAccount._id, kind: "internal" } },
+      { upsert: true, runValidators: true },
+    );
+    const partnerTaskTitle = `Share ${employee.department.name} partner launch update — ${employee.name}`;
+    const partnerTask = await ExternalProjectTask.findOneAndUpdate(
+      { project: demoPartnerProject._id, title: partnerTaskTitle },
+      {
+        $setOnInsert: {
+          project: demoPartnerProject._id,
+          title: partnerTaskTitle,
+          description: `Summarize ${employee.department.name} priorities and coordinate launch dependencies with Northstar Partner Co.`,
+          status: "To do",
+          dueDate: new Date(today.getTime() + (5 + (index % 14)) * 86400000),
+          assignee: employeeAccount._id,
+          createdBy: hrAccount._id,
+        },
+      },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+    );
+    await Notification.updateOne(
+      { user: employeeAccount._id, eventKey: `demo-partner-task:${partnerTask._id}` },
+      {
+        $setOnInsert: {
+          user: employeeAccount._id,
+          eventKey: `demo-partner-task:${partnerTask._id}`,
+          title: "Partner project task assigned",
+          message: `HR assigned you "${partnerTask.title}" in ${demoPartnerProject.name}.`,
+          link: "/employee",
+        },
+      },
+      { upsert: true, runValidators: true },
+    );
+
+    for (let dayOffset = 0; dayOffset < 30; dayOffset += 1) {
       const date = new Date(today);
       date.setUTCDate(date.getUTCDate() - dayOffset);
       const status = attendanceStatuses[(index + dayOffset) % attendanceStatuses.length];
@@ -192,8 +301,8 @@ async function seed() {
     });
   }
 
-  console.log(`Seed complete: ${newEmployeeCount} employees and ${newLoginCount} logins added; existing employee records and account passwords were left unchanged.`);
-  console.log("The demo roster includes attendance, leave, leave balances, six payroll periods, and performance review samples.");
+  console.log(`Seed complete: ${newEmployeeCount} employees and ${newLoginCount} logins added; each employee has an HR-assigned sample task; existing employee records and account passwords were left unchanged.`);
+  console.log("The demo roster includes internal and partner-project tasks, attendance, leave, leave balances, six payroll periods, and performance review samples.");
 }
 
 try {

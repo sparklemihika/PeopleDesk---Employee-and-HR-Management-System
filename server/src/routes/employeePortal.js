@@ -1,13 +1,22 @@
 import { Router } from "express";
 import mongoose from "mongoose";
+import { rateLimit } from "express-rate-limit";
 import {
-  Attendance, Employee, LeaveBalance, LeaveRequest, Payroll, PerformanceReview, ProfileChange,
+  Attendance, Employee, LeaveBalance, LeaveRequest, Payroll, PerformanceReview, ProfileChange, User,
 } from "../models/index.js";
 import { calculateHours, calendarDaysWithinYear } from "../utils/hr.js";
+import { createMailer } from "../utils/email.js";
 import { notifyHr } from "../utils/notifications.js";
 
 const router = Router();
 const defaultEntitlements = { Annual: 20, Sick: 10, Personal: 5, Parental: 90 };
+const supportRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { message: "Too many support requests. Please try again later." },
+});
 
 function localDayBounds(date = new Date()) {
   const start = new Date(date);
@@ -29,9 +38,11 @@ router.get("/", async (req, res) => {
     return res.status(403).json({ message: "Your employee profile is inactive or unavailable. Contact HR." });
   }
   const { start, end } = localDayBounds();
+  const historyStart = new Date(start);
+  historyStart.setDate(historyStart.getDate() - 29);
   const [todayAttendance, attendance, leaves, payroll, reviews, leaveBalances, profileChanges] = await Promise.all([
     Attendance.findOne({ employee: employee.id, date: { $gte: start, $lt: end } }),
-    Attendance.find({ employee: employee.id }).sort({ date: -1 }).limit(10),
+    Attendance.find({ employee: employee.id, date: { $gte: historyStart, $lt: end } }).sort({ date: -1 }),
     LeaveRequest.find({ employee: employee.id }).sort({ createdAt: -1 }).limit(10),
     Payroll.find({ employee: employee.id }).sort({ period: -1 }).limit(6).select("period baseSalary bonus deductions netPay status processedAt"),
     PerformanceReview.find({ employee: employee.id }).sort({ createdAt: -1 }).limit(6).select("reviewer period rating feedback status createdAt"),
@@ -111,6 +122,51 @@ router.post("/leaves", async (req, res) => {
   });
   await notifyHr("New leave request", `${employee.name} submitted a ${type.toLowerCase()} leave request.`, "/leave");
   return res.status(201).json({ data: leave });
+});
+
+router.post("/support", supportRequestLimiter, async (req, res) => {
+  const subject = typeof req.body.subject === "string" ? req.body.subject.trim() : "";
+  const message = typeof req.body.message === "string" ? req.body.message.trim() : "";
+  if (!subject || subject.length > 120 || !message || message.length > 5000) {
+    return res.status(400).json({ message: "Enter a subject (up to 120 characters) and message (up to 5,000 characters)." });
+  }
+  const employee = await Employee.findById(req.user.employee).select("name email department status");
+  if (!employee || employee.status === "Inactive") {
+    return res.status(403).json({ message: "Your employee profile is inactive or unavailable. Contact HR." });
+  }
+  const admins = await User.find({ role: "admin" }).select("email");
+  if (!admins.length) {
+    return res.status(503).json({ message: "No administrator email is configured to receive support requests." });
+  }
+  const mailer = createMailer();
+  if (!mailer) {
+    return res.status(503).json({ message: "Support email is not configured. Contact your system administrator." });
+  }
+  const safeSubject = subject.replace(/[\r\n]+/g, " ");
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character]);
+  try {
+    await mailer.sendMail({
+      from: process.env.MAIL_FROM,
+      to: admins.map(({ email }) => email),
+      replyTo: employee.email,
+      subject: `Employee support: ${safeSubject}`,
+      text: [
+        `Support request from ${employee.name}`,
+        `Email: ${employee.email}`,
+        `Department: ${employee.department}`,
+        `Subject: ${safeSubject}`,
+        "",
+        message,
+      ].join("\n"),
+      html: `<h2>Employee support request</h2><p><strong>Employee:</strong> ${escapeHtml(employee.name)} (${escapeHtml(employee.email)})</p><p><strong>Department:</strong> ${escapeHtml(employee.department)}</p><p><strong>Subject:</strong> ${escapeHtml(safeSubject)}</p><p>${escapeHtml(message).replace(/\n/g, "<br>")}</p>`,
+    });
+  } catch (error) {
+    console.error("Could not send employee support email:", error.message);
+    return res.status(503).json({ message: "Support email could not be sent. Please try again later." });
+  }
+  return res.status(201).json({ message: "Your support request has been emailed to the administrators." });
 });
 
 router.post("/profile-changes", async (req, res) => {
